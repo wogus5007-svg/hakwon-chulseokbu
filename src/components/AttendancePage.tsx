@@ -5,7 +5,7 @@ import StudentCard from './StudentCard';
 import AbsentCard from './AbsentCard';
 import type { AttendanceStatus, ContactStatus, Student, StudentsResponse } from '@/types';
 
-type Tab = '전체' | '결석' | '휴원';
+type Tab = '전체' | '출석' | '결석' | '휴원' | '미확인';
 
 function getTodayDateString(): string {
   const d = new Date();
@@ -139,8 +139,10 @@ export default function AttendancePage() {
   const absentCount = students.filter((s) => s.status === '결석').length;
   const pausedCount = students.filter((s) => s.status === '휴원').length;
   const unknownCount = students.filter((s) => s.status === '미확인').length;
+  const attendedStudents = students.filter((s) => s.status === '출석');
   const absentStudents = students.filter((s) => s.status === '결석');
   const pausedStudents = students.filter((s) => s.status === '휴원');
+  const unknownStudents = students.filter((s) => s.status === '미확인');
 
   if (loading) {
     return (
@@ -220,19 +222,25 @@ export default function AttendancePage() {
           <StatBadge label="미확인" count={unknownCount} color="gray" />
         </div>
 
-        {/* 전체/결석/휴원 탭 */}
-        <div className="flex border-t border-gray-100">
-          {(['전체', '결석', '휴원'] as Tab[]).map((tab) => (
+        {/* 탭 */}
+        <div className="flex border-t border-gray-100 overflow-x-auto scrollbar-hide">
+          {([
+            { tab: '전체', label: `전체 (${students.length})` },
+            { tab: '출석', label: `출석 (${attendedCount})` },
+            { tab: '결석', label: `결석 (${absentCount})` },
+            { tab: '휴원', label: `휴원 (${pausedCount})` },
+            { tab: '미확인', label: `미확인 (${unknownCount})` },
+          ] as { tab: Tab; label: string }[]).map(({ tab, label }) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`flex-1 py-3 text-sm font-semibold transition-colors ${
+              className={`flex-shrink-0 flex-1 py-3 text-sm font-semibold transition-colors whitespace-nowrap ${
                 activeTab === tab
                   ? 'text-blue-600 border-b-2 border-blue-600'
                   : 'text-gray-400'
               }`}
             >
-              {tab === '전체' ? `전체 (${students.length})` : tab === '결석' ? `결석 (${absentCount})` : `휴원 (${pausedCount})`}
+              {label}
             </button>
           ))}
         </div>
@@ -240,46 +248,31 @@ export default function AttendancePage() {
 
       {/* 콘텐츠 */}
       <div className="px-4 py-3 space-y-2">
-        {activeTab === '전체' ? (
-          students.length === 0 ? (
-            <EmptyState message="등록된 학생이 없습니다" sub="스프레드시트에 학생 명단을 추가해주세요" />
-          ) : (
-            students.map((student) => (
-              <StudentCard
-                key={student.id}
-                student={student}
-                onStatusChange={handleStatusChange}
-                isUpdating={updatingId === student.id}
-              />
-            ))
-          )
-        ) : activeTab === '결석' ? (
-          absentStudents.length === 0 ? (
-            <EmptyState message="결석 학생이 없습니다 🎉" sub="모든 학생이 출석했습니다!" />
-          ) : (
-            absentStudents.map((student) => (
-              <AbsentCard
-                key={student.id}
-                student={student}
-                onStatusChange={handleStatusChange}
-                onContactChange={handleContactChange}
-                isUpdating={updatingId === student.id}
-              />
-            ))
-          )
-        ) : pausedStudents.length === 0 ? (
-          <EmptyState message="휴원 학생이 없습니다" sub="휴원 중인 학생이 없습니다" />
-        ) : (
-          pausedStudents.map((student) => (
-            <AbsentCard
-              key={student.id}
-              student={student}
-              onStatusChange={handleStatusChange}
-              onContactChange={handleContactChange}
-              isUpdating={updatingId === student.id}
-            />
-          ))
-        )}
+        {(() => {
+          if (activeTab === '전체') {
+            return students.length === 0
+              ? <EmptyState message="등록된 학생이 없습니다" sub="스프레드시트에 학생 명단을 추가해주세요" />
+              : students.map((s) => <StudentCard key={s.id} student={s} onStatusChange={handleStatusChange} isUpdating={updatingId === s.id} />);
+          }
+          if (activeTab === '출석') {
+            return attendedStudents.length === 0
+              ? <EmptyState message="출석 학생이 없습니다" sub="아직 출석 처리된 학생이 없습니다" />
+              : attendedStudents.map((s) => <StudentCard key={s.id} student={s} onStatusChange={handleStatusChange} isUpdating={updatingId === s.id} />);
+          }
+          if (activeTab === '결석') {
+            return absentStudents.length === 0
+              ? <EmptyState message="결석 학생이 없습니다 🎉" sub="모든 학생이 출석했습니다!" />
+              : absentStudents.map((s) => <AbsentCard key={s.id} student={s} onStatusChange={handleStatusChange} onContactChange={handleContactChange} isUpdating={updatingId === s.id} />);
+          }
+          if (activeTab === '휴원') {
+            return pausedStudents.length === 0
+              ? <EmptyState message="휴원 학생이 없습니다" sub="휴원 중인 학생이 없습니다" />
+              : pausedStudents.map((s) => <AbsentCard key={s.id} student={s} onStatusChange={handleStatusChange} onContactChange={handleContactChange} isUpdating={updatingId === s.id} />);
+          }
+          return unknownStudents.length === 0
+            ? <EmptyState message="미확인 학생이 없습니다" sub="모든 학생의 출석이 확인됐습니다" />
+            : unknownStudents.map((s) => <StudentCard key={s.id} student={s} onStatusChange={handleStatusChange} isUpdating={updatingId === s.id} />);
+        })()}
       </div>
     </div>
   );
