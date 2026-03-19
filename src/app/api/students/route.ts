@@ -4,9 +4,10 @@ import { getStudentsWithAttendance } from '@/lib/googleSheets';
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const date = searchParams.get('date') ?? new Date().toISOString().split('T')[0];
+  const sheetName = searchParams.get('sheet') ?? undefined;
 
   try {
-    const data = await getStudentsWithAttendance(date);
+    const data = await getStudentsWithAttendance(date, sheetName);
     return NextResponse.json(data);
   } catch (error) {
     console.error('[GET /api/students]', error);

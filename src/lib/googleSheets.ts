@@ -44,13 +44,17 @@ function parsePhone(raw: string | undefined): string {
   return (raw ?? '').trim();
 }
 
-export async function getStudentsWithAttendance(date: string): Promise<StudentsResponse> {
+export async function getStudentsWithAttendance(
+  date: string,
+  sheetName?: string
+): Promise<StudentsResponse> {
   const auth = getAuth();
   const sheets = google.sheets({ version: 'v4', auth });
+  const targetSheet = sheetName || SHEET_NAME;
 
   const response = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
-    range: SHEET_NAME,
+    range: targetSheet,
   });
 
   const values = response.data.values ?? [];
@@ -67,7 +71,7 @@ export async function getStudentsWithAttendance(date: string): Promise<StudentsR
     const colLetter = colIndexToLetter(dateColIndex);
     await sheets.spreadsheets.values.update({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${SHEET_NAME}!${colLetter}1`,
+      range: `${targetSheet}!${colLetter}1`,
       valueInputOption: 'RAW',
       requestBody: { values: [[date]] },
     });
@@ -99,14 +103,16 @@ export async function getStudentsWithAttendance(date: string): Promise<StudentsR
 export async function updateAttendance(
   rowIndex: number,
   colIndex: number,
-  status: AttendanceStatus
+  status: AttendanceStatus,
+  sheetName?: string
 ): Promise<void> {
   const auth = getAuth();
   const sheets = google.sheets({ version: 'v4', auth });
+  const targetSheet = sheetName || SHEET_NAME;
 
   const colLetter = colIndexToLetter(colIndex);
   // 스프레드시트는 1-based, 1행은 헤더이므로 rowIndex + 2
-  const range = `${SHEET_NAME}!${colLetter}${rowIndex + 2}`;
+  const range = `${targetSheet}!${colLetter}${rowIndex + 2}`;
 
   await sheets.spreadsheets.values.update({
     spreadsheetId: SPREADSHEET_ID,

@@ -7,13 +7,11 @@ import type { AttendanceStatus, Student, StudentsResponse } from '@/types';
 
 type Tab = '전체' | '결석';
 
-/** 오늘 날짜를 YYYY-MM-DD 형식으로 반환 */
 function getTodayDateString(): string {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-/** 오늘 날짜를 한국어 형식으로 반환 */
 function getTodayKorean(): string {
   return new Date().toLocaleDateString('ko-KR', {
     year: 'numeric',
@@ -24,6 +22,8 @@ function getTodayKorean(): string {
 }
 
 export default function AttendancePage() {
+  const [sheetList, setSheetList] = useState<string[]>([]);
+  const [selectedSheet, setSelectedSheet] = useState<string>('');
   const [students, setStudents] = useState<Student[]>([]);
   const [dateColIndex, setDateColIndex] = useState(-1);
   const [activeTab, setActiveTab] = useState<Tab>('전체');
@@ -34,11 +34,25 @@ export default function AttendancePage() {
   const today = getTodayDateString();
   const todayKorean = getTodayKorean();
 
+  // 시트 목록 불러오기
+  useEffect(() => {
+    fetch('/api/sheets')
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.sheets?.length > 0) {
+          setSheetList(data.sheets);
+          setSelectedSheet(data.sheets[0]);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   const fetchStudents = useCallback(async () => {
+    if (!selectedSheet) return;
     setError(null);
     setLoading(true);
     try {
-      const res = await fetch(`/api/students?date=${today}`);
+      const res = await fetch(`/api/students?date=${today}&sheet=${encodeURIComponent(selectedSheet)}`);
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.error ?? '데이터를 불러오지 못했습니다');
@@ -51,17 +65,16 @@ export default function AttendancePage() {
     } finally {
       setLoading(false);
     }
-  }, [today]);
+  }, [today, selectedSheet]);
 
   useEffect(() => {
-    fetchStudents();
-  }, [fetchStudents]);
+    if (selectedSheet) fetchStudents();
+  }, [fetchStudents, selectedSheet]);
 
   const handleStatusChange = async (studentId: number, newStatus: AttendanceStatus) => {
     if (updatingId !== null) return;
     setUpdatingId(studentId);
 
-    // 낙관적 업데이트 (즉시 UI 반영)
     const prev = students;
     setStudents((s) => s.map((st) => (st.id === studentId ? { ...st, status: newStatus } : st)));
 
@@ -69,14 +82,18 @@ export default function AttendancePage() {
       const res = await fetch('/api/attendance', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rowIndex: studentId, colIndex: dateColIndex, status: newStatus }),
+        body: JSON.stringify({
+          rowIndex: studentId,
+          colIndex: dateColIndex,
+          status: newStatus,
+          sheetName: selectedSheet,
+        }),
       });
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.error ?? '업데이트 실패');
       }
     } catch (err) {
-      // 실패 시 원래 상태로 복구
       setStudents(prev);
       alert(`출석 상태 업데이트 실패: ${err instanceof Error ? err.message : '오류'}`);
     } finally {
@@ -94,7 +111,9 @@ export default function AttendancePage() {
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500 mx-auto mb-3" />
-          <p className="text-gray-400 text-sm">스프레드시트에서 데이터를 불러오는 중...</p>
+          <p className="text-gray-400 text-sm">
+            {selectedSheet ? `${selectedSheet} 불러오는 중...` : '데이터 불러오는 중...'}
+          </p>
         </div>
       </div>
     );
@@ -130,11 +149,32 @@ export default function AttendancePage() {
           <button
             onClick={fetchStudents}
             className="mt-1 p-2 rounded-full bg-gray-100 active:bg-gray-200 transition-colors"
-            title="새로고침"
           >
             <RefreshIcon />
           </button>
         </div>
+
+        {/* 반 선택 탭 (시트가 2개 이상일 때만 표시) */}
+        {sheetList.length > 1 && (
+          <div className="flex overflow-x-auto px-4 pb-2 gap-2 scrollbar-hide">
+            {sheetList.map((sheet) => (
+              <button
+                key={sheet}
+                onClick={() => {
+                  setSelectedSheet(sheet);
+                  setActiveTab('전체');
+                }}
+                className={`flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-semibold transition-all ${
+                  selectedSheet === sheet
+                    ? 'bg-blue-500 text-white'
+                    : 'bg-gray-100 text-gray-500'
+                }`}
+              >
+                {sheet}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* 통계 바 */}
         <div className="flex gap-2 px-4 pb-3">
@@ -144,7 +184,7 @@ export default function AttendancePage() {
           <StatBadge label="전체" count={students.length} color="blue" />
         </div>
 
-        {/* 탭 바 */}
+        {/* 출석/결석 탭 */}
         <div className="flex border-t border-gray-100">
           {(['전체', '결석'] as Tab[]).map((tab) => (
             <button
@@ -194,21 +234,8 @@ export default function AttendancePage() {
   );
 }
 
-function StatBadge({
-  label,
-  count,
-  color,
-}: {
-  label: string;
-  count: number;
-  color: 'green' | 'red' | 'gray' | 'blue';
-}) {
-  const colorMap = {
-    green: 'bg-green-50 text-green-700',
-    red: 'bg-red-50 text-red-700',
-    gray: 'bg-gray-100 text-gray-600',
-    blue: 'bg-blue-50 text-blue-700',
-  };
+function StatBadge({ label, count, color }: { label: string; count: number; color: 'green' | 'red' | 'gray' | 'blue' }) {
+  const colorMap = { green: 'bg-green-50 text-green-700', red: 'bg-red-50 text-red-700', gray: 'bg-gray-100 text-gray-600', blue: 'bg-blue-50 text-blue-700' };
   return (
     <div className={`flex-1 rounded-xl px-2 py-2 text-center ${colorMap[color]}`}>
       <p className="text-xs font-medium opacity-70">{label}</p>
@@ -229,12 +256,7 @@ function EmptyState({ message, sub }: { message: string; sub: string }) {
 function RefreshIcon() {
   return (
     <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-      />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
     </svg>
   );
 }
