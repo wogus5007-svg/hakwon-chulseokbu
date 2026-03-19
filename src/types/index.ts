@@ -25,4 +25,5 @@ export interface AttendanceUpdateRequest {
   rowIndex: number;
   colIndex: number;
   status: AttendanceStatus;
+  sheetName?: string;
 }
