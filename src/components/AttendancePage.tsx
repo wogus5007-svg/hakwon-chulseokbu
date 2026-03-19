@@ -3,9 +3,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import StudentCard from './StudentCard';
 import AbsentCard from './AbsentCard';
-import type { AttendanceStatus, Student, StudentsResponse } from '@/types';
+import type { AttendanceStatus, ContactStatus, Student, StudentsResponse } from '@/types';
 
-type Tab = '전체' | '결석';
+type Tab = '전체' | '결석' | '휴원';
 
 function getTodayDateString(): string {
   const d = new Date();
@@ -79,6 +79,7 @@ export default function AttendancePage() {
     setStudents((s) => s.map((st) => (st.id === studentId ? { ...st, status: newStatus } : st)));
 
     try {
+      const student = prev.find((s) => s.id === studentId);
       const res = await fetch('/api/attendance', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -86,6 +87,7 @@ export default function AttendancePage() {
           rowIndex: studentId,
           colIndex: dateColIndex,
           status: newStatus,
+          contactStatus: student?.contactStatus,
           sheetName: selectedSheet,
         }),
       });
@@ -101,10 +103,44 @@ export default function AttendancePage() {
     }
   };
 
+  const handleContactChange = async (studentId: number, newContact: ContactStatus) => {
+    if (updatingId !== null) return;
+    setUpdatingId(studentId);
+
+    const prev = students;
+    setStudents((s) => s.map((st) => (st.id === studentId ? { ...st, contactStatus: newContact } : st)));
+
+    try {
+      const student = prev.find((s) => s.id === studentId);
+      const res = await fetch('/api/attendance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          rowIndex: studentId,
+          colIndex: dateColIndex,
+          status: student?.status,
+          contactStatus: newContact,
+          sheetName: selectedSheet,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error ?? '업데이트 실패');
+      }
+    } catch (err) {
+      setStudents(prev);
+      alert(`연락 상태 업데이트 실패: ${err instanceof Error ? err.message : '오류'}`);
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
   const attendedCount = students.filter((s) => s.status === '출석').length;
   const absentCount = students.filter((s) => s.status === '결석').length;
+  const pausedCount = students.filter((s) => s.status === '휴원').length;
   const unknownCount = students.filter((s) => s.status === '미확인').length;
   const absentStudents = students.filter((s) => s.status === '결석');
+  const pausedStudents = students.filter((s) => s.status === '휴원');
 
   if (loading) {
     return (
@@ -180,13 +216,13 @@ export default function AttendancePage() {
         <div className="flex gap-2 px-4 pb-3">
           <StatBadge label="출석" count={attendedCount} color="green" />
           <StatBadge label="결석" count={absentCount} color="red" />
+          <StatBadge label="휴원" count={pausedCount} color="purple" />
           <StatBadge label="미확인" count={unknownCount} color="gray" />
-          <StatBadge label="전체" count={students.length} color="blue" />
         </div>
 
-        {/* 출석/결석 탭 */}
+        {/* 전체/결석/휴원 탭 */}
         <div className="flex border-t border-gray-100">
-          {(['전체', '결석'] as Tab[]).map((tab) => (
+          {(['전체', '결석', '휴원'] as Tab[]).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -196,7 +232,7 @@ export default function AttendancePage() {
                   : 'text-gray-400'
               }`}
             >
-              {tab === '전체' ? `전체 (${students.length}명)` : `결석 (${absentCount}명)`}
+              {tab === '전체' ? `전체 (${students.length})` : tab === '결석' ? `결석 (${absentCount})` : `휴원 (${pausedCount})`}
             </button>
           ))}
         </div>
@@ -217,14 +253,29 @@ export default function AttendancePage() {
               />
             ))
           )
-        ) : absentStudents.length === 0 ? (
-          <EmptyState message="결석 학생이 없습니다 🎉" sub="모든 학생이 출석했습니다!" />
+        ) : activeTab === '결석' ? (
+          absentStudents.length === 0 ? (
+            <EmptyState message="결석 학생이 없습니다 🎉" sub="모든 학생이 출석했습니다!" />
+          ) : (
+            absentStudents.map((student) => (
+              <AbsentCard
+                key={student.id}
+                student={student}
+                onStatusChange={handleStatusChange}
+                onContactChange={handleContactChange}
+                isUpdating={updatingId === student.id}
+              />
+            ))
+          )
+        ) : pausedStudents.length === 0 ? (
+          <EmptyState message="휴원 학생이 없습니다" sub="휴원 중인 학생이 없습니다" />
         ) : (
-          absentStudents.map((student) => (
+          pausedStudents.map((student) => (
             <AbsentCard
               key={student.id}
               student={student}
               onStatusChange={handleStatusChange}
+              onContactChange={handleContactChange}
               isUpdating={updatingId === student.id}
             />
           ))
@@ -234,8 +285,8 @@ export default function AttendancePage() {
   );
 }
 
-function StatBadge({ label, count, color }: { label: string; count: number; color: 'green' | 'red' | 'gray' | 'blue' }) {
-  const colorMap = { green: 'bg-green-50 text-green-700', red: 'bg-red-50 text-red-700', gray: 'bg-gray-100 text-gray-600', blue: 'bg-blue-50 text-blue-700' };
+function StatBadge({ label, count, color }: { label: string; count: number; color: 'green' | 'red' | 'gray' | 'blue' | 'purple' }) {
+  const colorMap = { green: 'bg-green-50 text-green-700', red: 'bg-red-50 text-red-700', gray: 'bg-gray-100 text-gray-600', blue: 'bg-blue-50 text-blue-700', purple: 'bg-purple-50 text-purple-700' };
   return (
     <div className={`flex-1 rounded-xl px-2 py-2 text-center ${colorMap[color]}`}>
       <p className="text-xs font-medium opacity-70">{label}</p>

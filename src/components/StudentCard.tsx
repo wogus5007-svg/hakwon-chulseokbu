@@ -11,16 +11,18 @@ interface Props {
 const STATUS_ACTIVE: Record<AttendanceStatus, string> = {
   출석: 'bg-green-500 text-white',
   결석: 'bg-red-500 text-white',
+  휴원: 'bg-purple-400 text-white',
   미확인: 'bg-gray-400 text-white',
 };
 
 const INDICATOR: Record<AttendanceStatus, string> = {
   출석: 'bg-green-500',
   결석: 'bg-red-500',
+  휴원: 'bg-purple-400',
   미확인: 'bg-gray-300',
 };
 
-const ALL_STATUSES: AttendanceStatus[] = ['출석', '결석', '미확인'];
+const ALL_STATUSES: AttendanceStatus[] = ['출석', '결석', '휴원', '미확인'];
 
 export default function StudentCard({ student, onStatusChange, isUpdating }: Props) {
   return (
@@ -29,12 +31,8 @@ export default function StudentCard({ student, onStatusChange, isUpdating }: Pro
         isUpdating ? 'opacity-50' : 'opacity-100'
       }`}
     >
-      {/* 상단: 이름 + 학교 + 상태 버튼 */}
       <div className="flex items-center gap-3">
-        {/* 상태 표시 점 */}
         <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${INDICATOR[student.status]}`} />
-
-        {/* 학생 정보 */}
         <div className="flex-1 min-w-0">
           <div className="flex items-baseline gap-2">
             <span className="font-bold text-gray-900 text-base">{student.name}</span>
@@ -46,8 +44,6 @@ export default function StudentCard({ student, onStatusChange, isUpdating }: Pro
             <p className="text-xs text-blue-500 mt-0.5">{student.classType}</p>
           )}
         </div>
-
-        {/* 상태 버튼 */}
         <div className="flex gap-1.5 flex-shrink-0">
           {ALL_STATUSES.map((status) => (
             <button
@@ -55,9 +51,7 @@ export default function StudentCard({ student, onStatusChange, isUpdating }: Pro
               onClick={() => !isUpdating && onStatusChange(student.id, status)}
               disabled={isUpdating}
               className={`px-2.5 py-2 rounded-xl text-xs font-semibold transition-all active:scale-95 select-none ${
-                student.status === status
-                  ? STATUS_ACTIVE[status]
-                  : 'bg-gray-100 text-gray-500'
+                student.status === status ? STATUS_ACTIVE[status] : 'bg-gray-100 text-gray-500'
               }`}
             >
               {status}
@@ -66,7 +60,6 @@ export default function StudentCard({ student, onStatusChange, isUpdating }: Pro
         </div>
       </div>
 
-      {/* 하단: 시험 정보 (있을 때만) */}
       {(student.examStatus || student.examPeriod || student.examRange) && (
         <div className="mt-2 pt-2 border-t border-gray-50 flex flex-wrap gap-x-3 gap-y-0.5">
           {student.examStatus && (
