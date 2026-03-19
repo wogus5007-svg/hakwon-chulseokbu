@@ -143,7 +143,7 @@ export default function AttendancePage() {
       <div className="bg-white shadow-sm sticky top-0 z-10">
         <div className="px-4 pt-4 pb-2 flex items-start justify-between">
           <div>
-            <h1 className="text-xl font-bold text-gray-900">📋 학원 출석부</h1>
+            <h1 className="text-xl font-bold text-gray-900">📋 이안서가 중등관 학원 출석부</h1>
             <p className="text-sm text-gray-400 mt-0.5">{todayKorean}</p>
           </div>
           <button
