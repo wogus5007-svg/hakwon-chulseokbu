@@ -52,9 +52,12 @@ export async function getStudentsWithAttendance(
   const sheets = google.sheets({ version: 'v4', auth });
   const targetSheet = sheetName || SHEET_NAME;
 
+  // 한국어 등 특수문자가 포함된 시트명은 작은따옴표로 감싸야 함
+  const quotedSheet = `'${targetSheet}'`;
+
   const response = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
-    range: targetSheet,
+    range: quotedSheet,
   });
 
   const values = response.data.values ?? [];
@@ -71,7 +74,7 @@ export async function getStudentsWithAttendance(
     const colLetter = colIndexToLetter(dateColIndex);
     await sheets.spreadsheets.values.update({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${targetSheet}!${colLetter}1`,
+      range: `${quotedSheet}!${colLetter}1`,
       valueInputOption: 'RAW',
       requestBody: { values: [[date]] },
     });
@@ -111,8 +114,7 @@ export async function updateAttendance(
   const targetSheet = sheetName || SHEET_NAME;
 
   const colLetter = colIndexToLetter(colIndex);
-  // 스프레드시트는 1-based, 1행은 헤더이므로 rowIndex + 2
-  const range = `${targetSheet}!${colLetter}${rowIndex + 2}`;
+  const range = `'${targetSheet}'!${colLetter}${rowIndex + 2}`;
 
   await sheets.spreadsheets.values.update({
     spreadsheetId: SPREADSHEET_ID,
