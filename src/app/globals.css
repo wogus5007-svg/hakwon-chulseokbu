@@ -1,0 +1,13 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 모바일 탭 바 터치 하이라이트 제거 */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* iOS 스크롤 부드럽게 */
+html {
+  -webkit-overflow-scrolling: touch;
+}

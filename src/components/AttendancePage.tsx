@@ -1,0 +1,240 @@
+'use client';
+
+import { useState, useEffect, useCallback } from 'react';
+import StudentCard from './StudentCard';
+import AbsentCard from './AbsentCard';
+import type { AttendanceStatus, Student, StudentsResponse } from '@/types';
+
+type Tab = '전체' | '결석';
+
+/** 오늘 날짜를 YYYY-MM-DD 형식으로 반환 */
+function getTodayDateString(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/** 오늘 날짜를 한국어 형식으로 반환 */
+function getTodayKorean(): string {
+  return new Date().toLocaleDateString('ko-KR', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    weekday: 'short',
+  });
+}
+
+export default function AttendancePage() {
+  const [students, setStudents] = useState<Student[]>([]);
+  const [dateColIndex, setDateColIndex] = useState(-1);
+  const [activeTab, setActiveTab] = useState<Tab>('전체');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [updatingId, setUpdatingId] = useState<number | null>(null);
+
+  const today = getTodayDateString();
+  const todayKorean = getTodayKorean();
+
+  const fetchStudents = useCallback(async () => {
+    setError(null);
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/students?date=${today}`);
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error ?? '데이터를 불러오지 못했습니다');
+      }
+      const data: StudentsResponse = await res.json();
+      setStudents(data.students);
+      setDateColIndex(data.dateColIndex);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '오류가 발생했습니다');
+    } finally {
+      setLoading(false);
+    }
+  }, [today]);
+
+  useEffect(() => {
+    fetchStudents();
+  }, [fetchStudents]);
+
+  const handleStatusChange = async (studentId: number, newStatus: AttendanceStatus) => {
+    if (updatingId !== null) return;
+    setUpdatingId(studentId);
+
+    // 낙관적 업데이트 (즉시 UI 반영)
+    const prev = students;
+    setStudents((s) => s.map((st) => (st.id === studentId ? { ...st, status: newStatus } : st)));
+
+    try {
+      const res = await fetch('/api/attendance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rowIndex: studentId, colIndex: dateColIndex, status: newStatus }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error ?? '업데이트 실패');
+      }
+    } catch (err) {
+      // 실패 시 원래 상태로 복구
+      setStudents(prev);
+      alert(`출석 상태 업데이트 실패: ${err instanceof Error ? err.message : '오류'}`);
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  const attendedCount = students.filter((s) => s.status === '출석').length;
+  const absentCount = students.filter((s) => s.status === '결석').length;
+  const unknownCount = students.filter((s) => s.status === '미확인').length;
+  const absentStudents = students.filter((s) => s.status === '결석');
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500 mx-auto mb-3" />
+          <p className="text-gray-400 text-sm">스프레드시트에서 데이터를 불러오는 중...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-screen px-6">
+        <div className="text-center">
+          <p className="text-4xl mb-4">⚠️</p>
+          <p className="text-gray-700 font-semibold mb-1">오류가 발생했습니다</p>
+          <p className="text-red-500 text-sm mb-6">{error}</p>
+          <button
+            onClick={fetchStudents}
+            className="bg-blue-500 text-white px-6 py-2.5 rounded-xl font-medium"
+          >
+            다시 시도
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 pb-24">
+      {/* 상단 헤더 */}
+      <div className="bg-white shadow-sm sticky top-0 z-10">
+        <div className="px-4 pt-4 pb-2 flex items-start justify-between">
+          <div>
+            <h1 className="text-xl font-bold text-gray-900">📋 학원 출석부</h1>
+            <p className="text-sm text-gray-400 mt-0.5">{todayKorean}</p>
+          </div>
+          <button
+            onClick={fetchStudents}
+            className="mt-1 p-2 rounded-full bg-gray-100 active:bg-gray-200 transition-colors"
+            title="새로고침"
+          >
+            <RefreshIcon />
+          </button>
+        </div>
+
+        {/* 통계 바 */}
+        <div className="flex gap-2 px-4 pb-3">
+          <StatBadge label="출석" count={attendedCount} color="green" />
+          <StatBadge label="결석" count={absentCount} color="red" />
+          <StatBadge label="미확인" count={unknownCount} color="gray" />
+          <StatBadge label="전체" count={students.length} color="blue" />
+        </div>
+
+        {/* 탭 바 */}
+        <div className="flex border-t border-gray-100">
+          {(['전체', '결석'] as Tab[]).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`flex-1 py-3 text-sm font-semibold transition-colors ${
+                activeTab === tab
+                  ? 'text-blue-600 border-b-2 border-blue-600'
+                  : 'text-gray-400'
+              }`}
+            >
+              {tab === '전체' ? `전체 (${students.length}명)` : `결석 (${absentCount}명)`}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* 콘텐츠 */}
+      <div className="px-4 py-3 space-y-2">
+        {activeTab === '전체' ? (
+          students.length === 0 ? (
+            <EmptyState message="등록된 학생이 없습니다" sub="스프레드시트에 학생 명단을 추가해주세요" />
+          ) : (
+            students.map((student) => (
+              <StudentCard
+                key={student.id}
+                student={student}
+                onStatusChange={handleStatusChange}
+                isUpdating={updatingId === student.id}
+              />
+            ))
+          )
+        ) : absentStudents.length === 0 ? (
+          <EmptyState message="결석 학생이 없습니다 🎉" sub="모든 학생이 출석했습니다!" />
+        ) : (
+          absentStudents.map((student) => (
+            <AbsentCard
+              key={student.id}
+              student={student}
+              onStatusChange={handleStatusChange}
+              isUpdating={updatingId === student.id}
+            />
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+function StatBadge({
+  label,
+  count,
+  color,
+}: {
+  label: string;
+  count: number;
+  color: 'green' | 'red' | 'gray' | 'blue';
+}) {
+  const colorMap = {
+    green: 'bg-green-50 text-green-700',
+    red: 'bg-red-50 text-red-700',
+    gray: 'bg-gray-100 text-gray-600',
+    blue: 'bg-blue-50 text-blue-700',
+  };
+  return (
+    <div className={`flex-1 rounded-xl px-2 py-2 text-center ${colorMap[color]}`}>
+      <p className="text-xs font-medium opacity-70">{label}</p>
+      <p className="text-lg font-bold leading-tight">{count}</p>
+    </div>
+  );
+}
+
+function EmptyState({ message, sub }: { message: string; sub: string }) {
+  return (
+    <div className="text-center py-16">
+      <p className="text-gray-600 font-medium">{message}</p>
+      <p className="text-gray-400 text-sm mt-1">{sub}</p>
+    </div>
+  );
+}
+
+function RefreshIcon() {
+  return (
+    <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+      />
+    </svg>
+  );
+}
