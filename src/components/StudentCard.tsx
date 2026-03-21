@@ -33,33 +33,32 @@ export default function StudentCard({ student, onStatusChange, isUpdating }: Pro
         isUpdating ? 'opacity-50' : 'opacity-100'
       }`}
     >
-      <div className="flex items-center gap-3">
+      {/* 상단: 이름 + 학교 */}
+      <div className="flex items-center gap-2 mb-2.5">
         <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${INDICATOR[student.status]}`} />
-        <div className="flex-1 min-w-0">
-          <div className="flex items-baseline gap-2">
-            <span className="font-bold text-gray-900 text-base">{student.name}</span>
-            {student.school && (
-              <span className="text-xs text-gray-400 truncate">{student.school}</span>
-            )}
-          </div>
-          {student.classType && (
-            <p className="text-xs text-blue-500 mt-0.5">{student.classType}</p>
-          )}
-        </div>
-        <div className="flex gap-1.5 flex-shrink-0">
-          {ALL_STATUSES.map((status) => (
-            <button
-              key={status}
-              onClick={() => !isUpdating && onStatusChange(student.id, status)}
-              disabled={isUpdating}
-              className={`px-2.5 py-2 rounded-xl text-xs font-semibold transition-all active:scale-95 select-none ${
-                student.status === status ? STATUS_ACTIVE[status] : 'bg-gray-100 text-gray-500'
-              }`}
-            >
-              {status}
-            </button>
-          ))}
-        </div>
+        <span className="font-bold text-gray-900 text-base">{student.name}</span>
+        {student.school && (
+          <span className="text-xs text-gray-400">{student.school}</span>
+        )}
+        {student.classType && (
+          <span className="text-xs text-blue-500 ml-auto">{student.classType}</span>
+        )}
+      </div>
+
+      {/* 하단: 상태 버튼 */}
+      <div className="flex gap-1.5">
+        {ALL_STATUSES.map((status) => (
+          <button
+            key={status}
+            onClick={() => !isUpdating && onStatusChange(student.id, status)}
+            disabled={isUpdating}
+            className={`flex-1 py-2 rounded-xl text-xs font-semibold transition-all active:scale-95 select-none ${
+              student.status === status ? STATUS_ACTIVE[status] : 'bg-gray-100 text-gray-500'
+            }`}
+          >
+            {status}
+          </button>
+        ))}
       </div>
 
       {(student.examStatus || student.examPeriod || student.examRange) && (
