@@ -5,7 +5,7 @@ import StudentCard from './StudentCard';
 import AbsentCard from './AbsentCard';
 import type { AttendanceStatus, ContactStatus, Student, StudentsResponse } from '@/types';
 
-type Tab = '전체' | '출석' | '결석' | '휴원' | '미확인';
+type Tab = '전체' | '출석' | '지각' | '결석' | '휴원' | '미확인';
 
 function getTodayDateString(): string {
   const d = new Date();
@@ -136,10 +136,12 @@ export default function AttendancePage() {
   };
 
   const attendedCount = students.filter((s) => s.status === '출석').length;
+  const lateCount = students.filter((s) => s.status === '지각').length;
   const absentCount = students.filter((s) => s.status === '결석').length;
   const pausedCount = students.filter((s) => s.status === '휴원').length;
   const unknownCount = students.filter((s) => s.status === '미확인').length;
   const attendedStudents = students.filter((s) => s.status === '출석');
+  const lateStudents = students.filter((s) => s.status === '지각');
   const absentStudents = students.filter((s) => s.status === '결석');
   const pausedStudents = students.filter((s) => s.status === '휴원');
   const unknownStudents = students.filter((s) => s.status === '미확인');
@@ -217,6 +219,7 @@ export default function AttendancePage() {
         {/* 통계 바 */}
         <div className="flex gap-2 px-4 pb-3">
           <StatBadge label="출석" count={attendedCount} color="green" />
+          <StatBadge label="지각" count={lateCount} color="yellow" />
           <StatBadge label="결석" count={absentCount} color="red" />
           <StatBadge label="휴원" count={pausedCount} color="purple" />
           <StatBadge label="미확인" count={unknownCount} color="gray" />
@@ -227,6 +230,7 @@ export default function AttendancePage() {
           {([
             { tab: '전체', label: `전체 (${students.length})` },
             { tab: '출석', label: `출석 (${attendedCount})` },
+            { tab: '지각', label: `지각 (${lateCount})` },
             { tab: '결석', label: `결석 (${absentCount})` },
             { tab: '휴원', label: `휴원 (${pausedCount})` },
             { tab: '미확인', label: `미확인 (${unknownCount})` },
@@ -259,6 +263,11 @@ export default function AttendancePage() {
               ? <EmptyState message="출석 학생이 없습니다" sub="아직 출석 처리된 학생이 없습니다" />
               : attendedStudents.map((s) => <StudentCard key={s.id} student={s} onStatusChange={handleStatusChange} isUpdating={updatingId === s.id} />);
           }
+          if (activeTab === '지각') {
+            return lateStudents.length === 0
+              ? <EmptyState message="지각 학생이 없습니다" sub="지각 처리된 학생이 없습니다" />
+              : lateStudents.map((s) => <StudentCard key={s.id} student={s} onStatusChange={handleStatusChange} isUpdating={updatingId === s.id} />);
+          }
           if (activeTab === '결석') {
             return absentStudents.length === 0
               ? <EmptyState message="결석 학생이 없습니다 🎉" sub="모든 학생이 출석했습니다!" />
@@ -278,8 +287,8 @@ export default function AttendancePage() {
   );
 }
 
-function StatBadge({ label, count, color }: { label: string; count: number; color: 'green' | 'red' | 'gray' | 'blue' | 'purple' }) {
-  const colorMap = { green: 'bg-green-50 text-green-700', red: 'bg-red-50 text-red-700', gray: 'bg-gray-100 text-gray-600', blue: 'bg-blue-50 text-blue-700', purple: 'bg-purple-50 text-purple-700' };
+function StatBadge({ label, count, color }: { label: string; count: number; color: 'green' | 'yellow' | 'red' | 'gray' | 'blue' | 'purple' }) {
+  const colorMap = { green: 'bg-green-50 text-green-700', yellow: 'bg-yellow-50 text-yellow-700', red: 'bg-red-50 text-red-700', gray: 'bg-gray-100 text-gray-600', blue: 'bg-blue-50 text-blue-700', purple: 'bg-purple-50 text-purple-700' };
   return (
     <div className={`flex-1 rounded-xl px-2 py-2 text-center ${colorMap[color]}`}>
       <p className="text-xs font-medium opacity-70">{label}</p>

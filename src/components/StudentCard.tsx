@@ -10,6 +10,7 @@ interface Props {
 
 const STATUS_ACTIVE: Record<AttendanceStatus, string> = {
   출석: 'bg-green-500 text-white',
+  지각: 'bg-yellow-400 text-white',
   결석: 'bg-red-500 text-white',
   휴원: 'bg-purple-400 text-white',
   미확인: 'bg-gray-400 text-white',
@@ -17,12 +18,13 @@ const STATUS_ACTIVE: Record<AttendanceStatus, string> = {
 
 const INDICATOR: Record<AttendanceStatus, string> = {
   출석: 'bg-green-500',
+  지각: 'bg-yellow-400',
   결석: 'bg-red-500',
   휴원: 'bg-purple-400',
   미확인: 'bg-gray-300',
 };
 
-const ALL_STATUSES: AttendanceStatus[] = ['출석', '결석', '휴원', '미확인'];
+const ALL_STATUSES: AttendanceStatus[] = ['출석', '지각', '결석', '휴원', '미확인'];
 
 export default function StudentCard({ student, onStatusChange, isUpdating }: Props) {
   return (

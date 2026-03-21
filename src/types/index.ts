@@ -1,4 +1,4 @@
-export type AttendanceStatus = '출석' | '결석' | '휴원' | '미확인';
+export type AttendanceStatus = '출석' | '지각' | '결석' | '휴원' | '미확인';
 export type ContactStatus = '미연락' | '미응답' | '출석예정';
 
 export interface Student {
