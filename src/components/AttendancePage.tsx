@@ -68,7 +68,11 @@ export default function AttendancePage() {
   }, [today, selectedSheet]);
 
   useEffect(() => {
-    if (selectedSheet) fetchStudents();
+    if (!selectedSheet) return;
+    const timeoutId = window.setTimeout(() => {
+      void fetchStudents();
+    }, 0);
+    return () => window.clearTimeout(timeoutId);
   }, [fetchStudents, selectedSheet]);
 
   const handleStatusChange = async (studentId: number, newStatus: AttendanceStatus) => {

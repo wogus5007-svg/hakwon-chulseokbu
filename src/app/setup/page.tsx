@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useState, useRef } from 'react';
 
 type Step = 1 | 2 | 3;
@@ -69,12 +70,12 @@ export default function SetupPage() {
           <p className="text-6xl mb-4">🎉</p>
           <h1 className="text-2xl font-bold text-gray-900 mb-2">설정 완료!</h1>
           <p className="text-gray-500 mb-8">구글 시트 연동이 성공적으로 완료되었습니다.</p>
-          <a
+          <Link
             href="/"
             className="block w-full py-4 bg-blue-500 text-white rounded-2xl font-bold text-lg active:bg-blue-600"
           >
             출석부 시작하기 →
-          </a>
+          </Link>
           <p className="text-xs text-gray-400 mt-4">
             앞으로는 <strong>앱 시작하기</strong> 파일만 더블클릭하면 됩니다.
           </p>

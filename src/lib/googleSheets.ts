@@ -17,6 +17,7 @@ const SHEET_NAME = process.env.GOOGLE_SHEET_NAME || '출석부';
  *   결석 + 연락상태   → "결석:미응답" | "결석:출석예정"
  */
 const FIXED_COLS = 9;
+type SheetsClient = ReturnType<typeof google.sheets>;
 
 function getAuth() {
   const raw = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
@@ -36,6 +37,43 @@ function colIndexToLetter(index: number): string {
     n = Math.floor(n / 26) - 1;
   }
   return letter;
+}
+
+async function ensureSheetHasColumn(
+  sheets: SheetsClient,
+  spreadsheetId: string,
+  sheetName: string,
+  columnIndex: number
+): Promise<void> {
+  const spreadsheet = await sheets.spreadsheets.get({
+    spreadsheetId,
+    fields: 'sheets(properties(sheetId,title,gridProperties(columnCount)))',
+  });
+
+  const sheet = spreadsheet.data.sheets?.find((item) => item.properties?.title === sheetName);
+  const sheetId = sheet?.properties?.sheetId;
+  const columnCount = sheet?.properties?.gridProperties?.columnCount ?? 0;
+
+  if (sheetId === undefined) {
+    throw new Error(`시트를 찾을 수 없습니다: ${sheetName}`);
+  }
+
+  if (columnCount > columnIndex) return;
+
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId,
+    requestBody: {
+      requests: [
+        {
+          appendDimension: {
+            sheetId,
+            dimension: 'COLUMNS',
+            length: columnIndex - columnCount + 1,
+          },
+        },
+      ],
+    },
+  });
 }
 
 /** "결석:미응답" → { status: '결석', contactStatus: '미응답' } */
@@ -81,6 +119,7 @@ export async function getStudentsWithAttendance(
   if (dateColIndex === -1) {
     dateColIndex = headers.length < FIXED_COLS ? FIXED_COLS : headers.length;
     const colLetter = colIndexToLetter(dateColIndex);
+    await ensureSheetHasColumn(sheets, SPREADSHEET_ID, targetSheet, dateColIndex);
     await sheets.spreadsheets.values.update({
       spreadsheetId: SPREADSHEET_ID,
       range: `${quotedSheet}!${colLetter}1`,
